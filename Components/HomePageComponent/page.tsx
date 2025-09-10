@@ -1,24 +1,9 @@
 "use client";
 
-/**
- * Admin Dashboard - Single file (app/dashboard/page.tsx)
- * Step-by-step inline:
- * 1) Auth guard (checks token in localStorage, redirects to /login using router.replace)
- * 2) Top Navbar (brand, search, notifications, profile + logout)
- * 3) Sidebar navigation (responsive)
- * 4) Main content: Welcome, Stats (3D tilt cards), Revenue sparkline, Recent orders table
- * 5) Right column: Account card + Activity feed + Quick links
- * 6) All animations use Framer Motion; small sparkline uses pure SVG (no chart deps)
- *
- * Quick setup:
- * - Tailwind CSS configured
- * - Install deps: npm i framer-motion react-icons
- * - Place file at app/dashboard/page.tsx
- */
-
-import React, { useEffect, useMemo, useState } from "react";
+import React, { JSX, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
   HiOutlineUsers,
   HiOutlineChartBar,
@@ -32,7 +17,7 @@ import { FiSearch } from "react-icons/fi";
 
 /* -------------------------
    Mock data (replace with API responses)
-   ------------------------- */
+------------------------- */
 const METRICS = [
   { id: "users", title: "Active Users", value: "12.4k", delta: "+4.2%", icon: HiOutlineUsers },
   { id: "revenue", title: "Monthly Revenue", value: "$48.2k", delta: "+6.8%", icon: HiOutlineChartBar },
@@ -56,9 +41,7 @@ const ACTIVITY = [
 
 /* -------------------------
    Small reusable components
-   ------------------------- */
-
-/** simple sparkline svg (no deps) */
+------------------------- */
 function Sparkline({ data, width = 220, height = 60 }: { data: number[]; width?: number; height?: number }) {
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -85,8 +68,7 @@ function Sparkline({ data, width = 220, height = 60 }: { data: number[]; width?:
   );
 }
 
-/** 3D-tilt metric card */
-function StatCard({ title, value, delta, Icon }: { title: string; value: string; delta: string; Icon: any }) {
+function StatCard({ title, value, delta, Icon }: { title: string; value: string; delta: string; Icon: React.ComponentType<React.SVGProps<SVGSVGElement>> }) {
   return (
     <motion.div
       style={{ perspective: 1200 }}
@@ -114,9 +96,8 @@ function StatCard({ title, value, delta, Icon }: { title: string; value: string;
 }
 
 /* -------------------------
-   Navbar & Sidebar (embedded)
-   ------------------------- */
-
+   Navbar & Sidebar
+------------------------- */
 function TopNavbar({ userName, onLogout }: { userName: string; onLogout: () => void }) {
   const [openProfile, setOpenProfile] = useState(false);
   return (
@@ -164,9 +145,7 @@ function TopNavbar({ userName, onLogout }: { userName: string; onLogout: () => v
                   className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg overflow-hidden"
                 >
                   <button
-                    onClick={() => {
-                      setOpenProfile(false);
-                    }}
+                    onClick={() => setOpenProfile(false)}
                     className="w-full text-left px-4 py-2 hover:bg-gray-50"
                   >
                     Profile
@@ -213,40 +192,33 @@ function Sidebar({ active, setActive }: { active: string; setActive: (s: string)
 }
 
 /* -------------------------
-   Main Page
-   ------------------------- */
-
+   Admin Dashboard Page
+------------------------- */
 export default function AdminDashboardPage(): JSX.Element {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
   const [user, setUser] = useState<{ name: string; email?: string } | null>(null);
   const [active, setActive] = useState<string>("home");
 
-  // Auth guard + fetch user profile if you have an endpoint
+  // Auth guard + fetch user
   useEffect(() => {
     if (typeof window === "undefined") return;
     const token = localStorage.getItem("token");
     if (!token) {
-      // not logged in -> redirect
       router.replace("/login");
       return;
     }
 
-    // Optional: try to fetch user info from API; fallback to mocked user if API not available
     (async () => {
       try {
-        const res = await fetch("/api/auth/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await fetch("/api/auth/me", { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
           const json = await res.json();
           setUser(json.user || { name: "Varad", email: "admin@company.com" });
         } else {
-          // fallback if endpoint not present
           setUser({ name: "Varad", email: "admin@company.com" });
         }
-      } catch (err) {
-        // network or endpoint missing -> use fallback
+      } catch {
         setUser({ name: "Varad", email: "admin@company.com" });
       } finally {
         setChecking(false);
@@ -276,29 +248,25 @@ export default function AdminDashboardPage(): JSX.Element {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top navbar */}
       <TopNavbar userName={user?.name ?? "Admin"} onLogout={logout} />
 
-      {/* Grid layout: Sidebar | Main | Right */}
       <div className="max-w-7xl mx-auto px-4 lg:px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Sidebar active={active} setActive={setActive} />
 
-        {/* MAIN CONTENT */}
         <main className="lg:col-span-7 space-y-6">
-          {/* Welcome card */}
+          {/* Welcome */}
           <section className="bg-white rounded-2xl p-6 shadow-md flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user?.name ?? "Admin"} 👋</h1>
-              <p className="text-sm text-gray-500 mt-1">Here's what's happening with your store today.</p>
+              <p className="text-sm text-gray-500 mt-1">Here&apos;s what&apos;s happening with your store today.</p>
             </div>
-
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <div className="text-sm text-gray-500">Today</div>
                 <div className="text-lg font-semibold text-gray-900">{new Date().toLocaleDateString()}</div>
               </div>
               <button
-                onClick={() => alert("Create quick report - replace this with real action")}
+                onClick={() => alert("Create quick report")}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-indigo-700"
               >
                 Quick Report
@@ -306,14 +274,14 @@ export default function AdminDashboardPage(): JSX.Element {
             </div>
           </section>
 
-          {/* Metrics grid */}
+          {/* Metrics */}
           <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {metrics.map((m) => (
               <StatCard key={m.id} title={m.title} value={m.value} delta={m.delta} Icon={m.icon} />
             ))}
           </section>
 
-          {/* Charts and summary */}
+          {/* Charts */}
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <motion.div
               whileHover={{ rotateX: -4, rotateY: 6 }}
@@ -327,11 +295,9 @@ export default function AdminDashboardPage(): JSX.Element {
                 </div>
                 <div className="text-sm text-green-600">+6.8%</div>
               </div>
-
               <div className="mt-4">
                 <Sparkline data={SPARK_DATA} width={640} height={80} />
               </div>
-
               <div className="mt-4 flex items-center gap-3 text-sm text-gray-600">
                 <div className="px-3 py-2 bg-indigo-50 rounded-lg">Revenue</div>
                 <div className="px-3 py-2 bg-green-50 rounded-lg">Conversion</div>
@@ -343,7 +309,6 @@ export default function AdminDashboardPage(): JSX.Element {
               <h4 className="text-sm text-gray-500">Conversion</h4>
               <div className="mt-2 text-3xl font-semibold">3.8%</div>
               <div className="mt-3 text-xs text-gray-400">Improve product pages to increase conversions.</div>
-
               <div className="mt-5">
                 <div className="text-xs text-gray-500 mb-2">Goal progress</div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
@@ -362,7 +327,6 @@ export default function AdminDashboardPage(): JSX.Element {
                 View all
               </div>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -402,11 +366,10 @@ export default function AdminDashboardPage(): JSX.Element {
           </section>
         </main>
 
-        {/* RIGHT COLUMN */}
         <aside className="lg:col-span-3 space-y-6">
           <div className="bg-white p-4 rounded-2xl shadow-md text-center">
             <h4 className="text-sm text-gray-500">Account</h4>
-            <img src="/images/avatar-placeholder.png" alt="avatar" className="w-20 h-20 rounded-full mx-auto my-3" />
+            <Image src="/images/avatar-placeholder.png" alt="avatar" width={80} height={80} className="rounded-full mx-auto my-3" />
             <div className="font-semibold">{user?.name}</div>
             <div className="text-xs text-gray-400">{user?.email}</div>
             <button onClick={logout} className="mt-4 w-full bg-red-500 text-white py-2 rounded-lg">

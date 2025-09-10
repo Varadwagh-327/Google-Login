@@ -1,61 +1,144 @@
 "use client";
 
-import { useState, useEffect } from "react";
+/**
+ * LoginPage (app/login/page.tsx)
+ *
+ * Step-by-step:
+ * 1) Strongly type window.google & window.handleCredentialResponse to avoid `any`.
+ * 2) Load Google Identity Services script on mount, initialize and render the button.
+ * 3) Provide a fallback email/password POST (replace with your actual API endpoint).
+ * 4) Save token to localStorage and redirect to "/HomePage" on success.
+ * 5) Clean up script and global handler on unmount.
+ *
+ * Notes:
+ * - Make sure NEXT_PUBLIC_GOOGLE_CLIENT_ID is set in your .env (and available to Next).
+ * - Install runtime deps: `npm i framer-motion react-icons`
+ * - Install dev types if you use TypeScript: `npm i -D @types/react @types/react-dom`
+ */
+
+import React, { useEffect, useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 
+/* -------------------------
+   Strong types for the global Google object & handler
+   (prevents `@typescript-eslint/no-explicit-any` errors)
+   ------------------------- */
 declare global {
   interface Window {
-    google: any;
-    handleCredentialResponse: any;
+    // Minimal typing for the Google Identity Services object we use
+    google?: {
+      accounts?: {
+        id?: {
+          // initialize accepts a config with client_id and callback
+          initialize?: (config: {
+            client_id: string;
+            callback: (response: { credential: string }) => void;
+            auto_select?: boolean;
+            ux_mode?: "popup" | "redirect";
+            // other fields are ignored here
+          }) => void;
+          // renderButton attaches the button to a container element
+          renderButton?: (
+            element: HTMLElement | null,
+            options?: {
+              theme?: "outline" | "filled_blue" | "filled_black" | string;
+              size?: "large" | "medium" | "small";
+              shape?: "rectangular" | "pill" | string;
+              text?: "signin_with" | "continue_with" | string;
+            }
+          ) => void;
+          prompt?: () => void;
+        };
+      };
+    };
+    // Our callback handler type
+    handleCredentialResponse?: (response: { credential: string }) => void;
   }
 }
 
+/* -------------------------
+   Component
+   ------------------------- */
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
 
-  // Google Login
+  /* -------------------------
+     Google Login setup
+     - Sets window.handleCredentialResponse
+     - Loads GIS script
+     - Initializes and renders button when script loaded
+     - Cleans up on unmount
+     ------------------------- */
   useEffect(() => {
+    // Handler that will be called by Google's library
     window.handleCredentialResponse = async (response: { credential: string }) => {
       try {
+        // POST token to your backend (replace endpoint with your API)
         const res = await fetch("/api/auth", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token: response.credential }),
         });
         const data = await res.json();
+
         if (data.token) {
+          // Save token AND redirect
           localStorage.setItem("token", data.token);
           router.push("/HomePage");
+        } else {
+          console.error("No token returned from /api/auth", data);
         }
       } catch (err) {
         console.error("Google login failed:", err);
       }
     };
 
+    // Create script element
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
     document.body.appendChild(script);
 
+    // When the script loads, initialize and render the button
     script.onload = () => {
-      window.google.accounts.id.initialize({
-        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-        callback: window.handleCredentialResponse,
-      });
-      window.google.accounts.id.renderButton(
-        document.getElementById("googleSignIn")!,
-        { theme: "outline", size: "large", shape: "pill" }
-      );
+      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+      // ensure google identity API is available
+      if (window.google?.accounts?.id?.initialize && window.google?.accounts?.id?.renderButton) {
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: window.handleCredentialResponse!,
+        });
+
+        const container = document.getElementById("googleSignIn");
+        window.google.accounts.id.renderButton(container, { theme: "outline", size: "large", shape: "pill" });
+      } else {
+        console.warn("Google Identity Services API not available on window.google.accounts.id");
+      }
+    };
+
+    // Cleanup on unmount: remove handler and script
+    return () => {
+      try {
+        delete window.handleCredentialResponse;
+      } catch {
+        /* ignore */
+      }
+      if (script && script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
     };
   }, [router]);
 
-  // Email/Password Login
+  /* -------------------------
+     Email/Password submit handler
+     Replace the POST URL with your real API endpoint
+     ------------------------- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -72,6 +155,8 @@ export default function LoginPage() {
       if (data.token) {
         localStorage.setItem("token", data.token);
         router.push("/HomePage");
+      } else {
+        console.error("Login endpoint returned no token", data);
       }
     } catch (err) {
       console.error("Login failed:", err);
@@ -80,6 +165,9 @@ export default function LoginPage() {
     }
   };
 
+  /* -------------------------
+     UI (kept same as your design)
+     ------------------------- */
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 via-white to-indigo-50 px-6">
       <motion.div
@@ -97,9 +185,7 @@ export default function LoginPage() {
         {/* Email/Password Login */}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Email Address</label>
             <input
               type="email"
               placeholder="you@example.com"
@@ -111,9 +197,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
             <input
               type="password"
               placeholder="••••••••"
@@ -140,26 +224,18 @@ export default function LoginPage() {
           <hr className="flex-1 border-gray-300" />
         </div>
 
-        {/* Google Sign-in */}
+        {/* Google Sign-in container (GIS will replace this with a button) */}
         <div className="flex justify-center">
           <div
             id="googleSignIn"
             className="flex items-center gap-2 border px-4 py-2 rounded-lg cursor-pointer bg-white shadow-sm hover:shadow-md transition"
+            role="button"
+            aria-label="Sign in with Google"
           >
             <FcGoogle size={22} />
-            <span className="text-sm font-medium text-gray-700">
-              Sign in with Google
-            </span>
+            <span className="text-sm font-medium text-gray-700">Sign in with Google</span>
           </div>
         </div>
-
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-4">
-          Don’t have an account?{" "}
-          <a href="/signup" className="text-indigo-600 hover:underline font-medium">
-            Sign Up
-          </a>
-        </p>
       </motion.div>
     </div>
   );

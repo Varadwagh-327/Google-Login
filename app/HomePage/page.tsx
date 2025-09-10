@@ -1,9 +1,8 @@
 import React from 'react'
 import PortfolioPage from '@/Components/HomePageComponent/page'
 
-type Props = {}
 
-function page({}: Props) {
+function page() {
   return (
     <>
     <div>
