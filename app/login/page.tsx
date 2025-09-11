@@ -47,7 +47,7 @@ export default function LoginPage() {
     document.body.appendChild(script);
 
     script.onload = () => {
-      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
+      const clientId = "920952709114-4oqpubk25650h2vcoc9mh9s9cke419fu.apps.googleusercontent.com";
       if (!clientId) console.error("NEXT_PUBLIC_GOOGLE_CLIENT_ID is missing!");
 
       if (window.google?.accounts?.id?.initialize && window.google?.accounts?.id?.renderButton) {
